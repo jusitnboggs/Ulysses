@@ -51,4 +51,11 @@ if not ulx then
 	for _, file in ipairs( sh_modules ) do
 		AddCSLuaFile( "ulx/modules/sh/" .. file )
 	end
+
+	Msg("\n\n*******************************************************\n")
+	Msg(" NOTICE: ULX has been moved to a different repository!\n")
+	Msg(" Please visit http://ulyssesmod.net/ for more details.\n")
+	Msg(" Update your server as soon as possible!\n")
+	Msg("*******************************************************\n\n\n")
+
 end

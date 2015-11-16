@@ -92,6 +92,13 @@ if not ULib then
 		end
 	end
 
+	Msg("********************************************************\n")
+	Msg(" NOTICE: ULib has been moved to a different repository!\n")
+	Msg(" Please visit http://ulyssesmod.net/ for more details.\n")
+	Msg(" Update your server as soon as possible!\n")
+	Msg("********************************************************\n\n\n")
+	ULib.notifyRepoChange = true
+
 	local function clReady( ply )
 		ply.ulib_ready = true
 		hook.Call( ULib.HOOK_LOCALPLAYERREADY, _, ply )

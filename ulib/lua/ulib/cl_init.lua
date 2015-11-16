@@ -61,3 +61,17 @@ function authPlayerIfReady( ply, userid )
 		needs_auth[ userid ] = true
 	end
 end
+
+local function notifyAdminsForRepoChange( ply )
+	if ulx.notifyRepoChange then return true end
+	if ply:IsSuperAdmin() then
+		timer.Simple( 10, function()
+			chat.AddText( "************************************************************")
+			chat.AddText( "Hey ", ply, "! ULib has been moved to a different repository!")
+			chat.AddText( "Please visit http://ulyssesmod.net/ for more details.")
+			chat.AddText( "Update your server as soon as possible!")
+			chat.AddText( "************************************************************")
+		end)
+	end
+end
+hook.Add( "ULibLocalPlayerReady", "ULibRepoChangeCheck", notifyAdminsForRepoChange, HOOK_MONITOR_HIGH )
