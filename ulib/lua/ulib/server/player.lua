@@ -188,6 +188,9 @@ function ULib.addBan( steamid, time, reason, name, admin )
 		end
 	end
 
+	-- Remove all semicolons from the reason to prevent command injection
+	showReason = string.gsub(showReason, ";", "")
+
 	-- This redundant kick code is to ensure they're kicked -- even if they're joining
 	game.ConsoleCommand( string.format( "kickid %s %s\n", steamid, showReason or "" ) )
 	game.ConsoleCommand( string.format( "banid %f %s kick\n", time, steamid ) )
@@ -233,12 +236,13 @@ end
 	Parameters:
 
 		steamid - The steamid to unban.
+		admin - *(Optional)* Admin player unbanning steamid
 
 	Revisions:
 
 		v2.10 - Initial
 ]]
-function ULib.unban( steamid )
+function ULib.unban( steamid, admin )
 
 	--Default banlist
 	if ULib.fileExists( "cfg/banned_user.cfg" ) then
@@ -260,8 +264,15 @@ local function doInvis()
 			remove = false
 			if player:Alive() and player:GetActiveWeapon():IsValid() then
 				if player:GetActiveWeapon() ~= t.invis.wep then
-					timer.Simple( 0.05, function () ULib.invisible( player, true, t.invis.vis ) end )
+
+					if t.invis.wep and IsValid( t.invis.wep ) then		-- If changed weapon, set the old weapon to be visible.
+						t.invis.wep:SetRenderMode( RENDERMODE_NORMAL )
+						t.invis.wep:Fire( "alpha", 255, 0 )
+						t.invis.wep:SetMaterial( "" )
+					end
+
 					t.invis.wep = player:GetActiveWeapon()
+					ULib.invisible( player, true, t.invis.vis )
 				end
 			end
 		end

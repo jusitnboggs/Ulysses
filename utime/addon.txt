@@ -1,7 +1,7 @@
 "AddonInfo"
 {
 	"name"		"UTime"
-	"version"	"1.43"
+	"version"	"1.44"
 	"up_date"	"00/00/00"
 	"author_name"	"Megiddo (Team Ulysses)"
 	"author_email"	"megiddo@ulyssesmod.net"

@@ -1,9 +1,21 @@
 --Server stuff for the GUI for ULX --by Stickly Man!
 
-xgui = {}
+xgui = xgui or {}
 xgui.svmodules = {}
 function xgui.addSVModule( name, initFunc, postinitFunc )
+	local found = false
+	for i, svmodule in pairs( xgui.svmodules ) do
+		if svmodule.name == name then
+			table.remove( xgui.svmodules, i )
+			found = true
+			break
+		end
+	end
 	table.insert( xgui.svmodules, { name=name, init=initFunc, postinit=postinitFunc } )
+	if found then -- Autorefresh
+		initFunc()
+		postinitFunc()
+	end
 end
 
 Msg( "///////////////////////////////\n" )
@@ -149,7 +161,7 @@ function xgui.init()
 			local chunks = {}
 			for _, dtype in ipairs( datatypes ) do
 				if xgui.dataTypes[dtype] then
-					data = xgui.dataTypes[dtype]
+					local data = xgui.dataTypes[dtype]
 					if ULib.ucl.query( ply, data.access ) then
 						local t = data.getData()
 						local size = data.maxchunk or 0 --Split the table into "chunks" of per-datatype specified size to even out data flow. 0 to disable
@@ -272,12 +284,12 @@ function xgui.init()
 end
 
 --Init the code when the server is ready
-hook.Add( "Initialize", "XGUI_InitServer", xgui.init, -1 )
+hook.Add( "Initialize", "XGUI_InitServer", xgui.init, HOOK_HIGH )
 
 --Call the modules postinit function when ULX is done loading. Should be called well after the Initialize hook.
 function xgui.postInit()
 	for _, v in ipairs( xgui.svmodules ) do if v.postinit then v.postinit() end end
-	
+
 	--Fix any users who requested data before the server was ready
 	for _, ply in pairs( player.GetAll() ) do
 		for UID, data in pairs( xgui.activeUsers ) do
@@ -287,4 +299,4 @@ function xgui.postInit()
 		end
 	end
 end
-hook.Add( ulx.HOOK_ULXDONELOADING, "XGUI_PostInitServer", xgui.postInit )
+hook.Add( ulx.HOOK_ULXDONELOADING, "XGUI_PostInitServer", xgui.postInit, HOOK_MONITOR_LOW )

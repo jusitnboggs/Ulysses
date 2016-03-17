@@ -9,7 +9,7 @@
 
 	This table holds our say commands.
 ]]
-ULib.sayCmds = {}
+ULib.sayCmds = ULib.sayCmds or {}
 
 --[[
 	Function: sayCmdCheck
@@ -70,7 +70,7 @@ local function sayCmdCheck( ply, strText, bTeam )
 
 	return nil
 end
-hook.Add( "PlayerSay", "ULib_saycmd", sayCmdCheck, -10 ) -- High-priority
+hook.Add( "PlayerSay", "ULib_saycmd", sayCmdCheck, HOOK_HIGH ) -- High-priority
 
 
 --[[

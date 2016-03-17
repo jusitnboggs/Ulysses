@@ -24,10 +24,10 @@ ULib.ucl.registerAccess( seeanonymousechoAccess, ULib.ACCESS_ADMIN, "Ability to 
 local spawnechoAccess = "ulx spawnecho"
 ULib.ucl.registerAccess( spawnechoAccess, ULib.ACCESS_ADMIN, "Ability to see spawn echoes and steamids from joined players in console", "Other" ) -- Give admins access to see spawn echoes by default
 
-local curDateStr -- This will hold the date string (YYYY-mm-dd) we think it is right now.
+local curDateStr = os.date( "%Y-%m-%d" ) -- This will hold the date string (YYYY-mm-dd) we think it is right now.
 
 -- Utility stuff for our logs...
-ulx.log_file = nil
+ulx.log_file = ulx.log_file or nil
 local function init()
 	curDateStr = os.date( "%Y-%m-%d" )
 	if logFile:GetBool() then
@@ -161,7 +161,7 @@ end
 local function echoToAdmins( txt )
 	local players = player.GetAll()
 	for _, ply in ipairs( players ) do
-		if ULib.ucl.query( ply, spawnechoAccess ) then
+		if ULib.ucl.authed[ ply:UniqueID() ] and ULib.ucl.query( ply, spawnechoAccess ) then
 			ULib.console( ply, txt )
 		end
 	end
@@ -169,17 +169,14 @@ end
 
 local function playerSay( ply, text, private )
 	if logChat:GetBool() then
-		if not ply:IsValid() then return false end	--Stop processing the hook to prevent a crash.
-		
 		if private then
 			ulx.logString( string.format( "(TEAM) %s: %s", ply:Nick(), text ) )
 		else
 			ulx.logString( string.format( "%s: %s", ply:Nick(), text ) )
 		end
 	end
-	return nil
 end
-hook.Add( "PlayerSay", "ULXLogSay", playerSay, 20 )
+hook.Add( "PlayerSay", "ULXLogSay", playerSay, HOOK_MONITOR_LOW )
 
 local joinTimer = {}
 local mapStartTime = os.time()
@@ -189,13 +186,13 @@ local function playerConnect( name, address )
 		ulx.logString( string.format( "Client \"%s\" connected.", name ) )
 	end
 end
-hook.Add( "PlayerConnect", "ULXLogConnect", playerConnect, -20 )
+hook.Add( "PlayerConnect", "ULXLogConnect", playerConnect, HOOK_MONITOR_HIGH )
 
 local function playerInitialSpawn( ply )
 	local ip = ply:IPAddress()
 	local seconds = os.time() - (joinTimer[ip] or mapStartTime)
 	joinTimer[ip] = nil
-	
+
 	local txt = string.format( "Client \"%s\" spawned in server <%s> (took %i seconds).", ply:Nick(), ply:SteamID(), seconds )
 	if logEvents:GetBool() then
 		ulx.logString( txt )
@@ -205,7 +202,7 @@ local function playerInitialSpawn( ply )
 		echoToAdmins( txt )
 	end
 end
-hook.Add( "PlayerInitialSpawn", "ULXLogInitialSpawn", playerInitialSpawn, -19 )
+hook.Add( "PlayerInitialSpawn", "ULXLogInitialSpawn", playerInitialSpawn, HOOK_MONITOR_HIGH )
 
 local function playerDisconnect( ply )
 	local txt = string.format( "Dropped \"%s\" from server<%s>", ply:Nick(), ply:SteamID() )
@@ -217,7 +214,7 @@ local function playerDisconnect( ply )
 		echoToAdmins( txt )
 	end
 end
-hook.Add( "PlayerDisconnected", "ULXLogDisconnect", playerDisconnect, -20 )
+hook.Add( "PlayerDisconnected", "ULXLogDisconnect", playerDisconnect, HOOK_MONITOR_HIGH )
 
 local function playerDeath( victim, weapon, killer )
 	if logEvents:GetBool() then
@@ -235,7 +232,7 @@ local function playerDeath( victim, weapon, killer )
 		end
 	end
 end
-hook.Add( "PlayerDeath", "ULXLogDeath", playerDeath, -20 )
+hook.Add( "PlayerDeath", "ULXLogDeath", playerDeath, HOOK_MONITOR_HIGH )
 
 -- Check name changes
 local function nameCheck( ply, oldnick, newnick )
@@ -256,7 +253,7 @@ local function shutDown()
 		ulx.logString( "Server is shutting down/changing levels." )
 	end
 end
-hook.Add( "ShutDown", "ULXLogShutDown", shutDown, -20 )
+hook.Add( "ShutDown", "ULXLogShutDown", shutDown, HOOK_MONITOR_HIGH )
 
 function ulx.logSpawn( txt )
 	if logSpawns:GetBool() then
@@ -278,32 +275,32 @@ end
 local function propSpawn( ply, model, ent )
 	ulx.logSpawn( string.format( "%s<%s> spawned model %s", ply:Nick(), ply:SteamID(), ulx.standardizeModel( model ) ) )
 end
-hook.Add( "PlayerSpawnedProp", "ULXLogPropSpawn", propSpawn, 20 )
+hook.Add( "PlayerSpawnedProp", "ULXLogPropSpawn", propSpawn, HOOK_MONITOR_LOW )
 
 local function ragdollSpawn( ply, model, ent )
 	ulx.logSpawn( string.format( "%s<%s> spawned ragdoll %s", ply:Nick(), ply:SteamID(), ulx.standardizeModel( model ) ) )
 end
-hook.Add( "PlayerSpawnedRagdoll", "ULXLogRagdollSpawn", ragdollSpawn, 20 )
+hook.Add( "PlayerSpawnedRagdoll", "ULXLogRagdollSpawn", ragdollSpawn, HOOK_MONITOR_LOW )
 
 local function effectSpawn( ply, model, ent )
 	ulx.logSpawn( string.format( "%s<%s> spawned effect %s", ply:Nick(), ply:SteamID(), ulx.standardizeModel( model ) ) )
 end
-hook.Add( "PlayerSpawnedEffect", "ULXLogEffectSpawn", effectSpawn, 20 )
+hook.Add( "PlayerSpawnedEffect", "ULXLogEffectSpawn", effectSpawn, HOOK_MONITOR_LOW )
 
 local function vehicleSpawn( ply, ent )
 	ulx.logSpawn( string.format( "%s<%s> spawned vehicle %s", ply:Nick(), ply:SteamID(), ulx.standardizeModel( ent:GetModel() or "unknown" ) ) )
 end
-hook.Add( "PlayerSpawnedVehicle", "ULXLogVehicleSpawn", vehicleSpawn, 20 )
+hook.Add( "PlayerSpawnedVehicle", "ULXLogVehicleSpawn", vehicleSpawn, HOOK_MONITOR_LOW )
 
 local function sentSpawn( ply, ent )
 	ulx.logSpawn( string.format( "%s<%s> spawned sent %s", ply:Nick(), ply:SteamID(), ent:GetClass() ) )
 end
-hook.Add( "PlayerSpawnedSENT", "ULXLogSentSpawn", sentSpawn, 20 )
+hook.Add( "PlayerSpawnedSENT", "ULXLogSentSpawn", sentSpawn, HOOK_MONITOR_LOW )
 
 local function NPCSpawn( ply, ent )
 	ulx.logSpawn( string.format( "%s<%s> spawned NPC %s", ply:Nick(), ply:SteamID(), ent:GetClass() ) )
 end
-hook.Add( "PlayerSpawnedNPC", "ULXLogNPCSpawn",NPCSpawn )
+hook.Add( "PlayerSpawnedNPC", "ULXLogNPCSpawn", NPCSpawn, HOOK_MONITOR_LOW )
 
 local default_color
 local console_color
@@ -330,6 +327,7 @@ local function updateColors()
 	end
 end
 hook.Add( ulx.HOOK_ULXDONELOADING, "UpdateEchoColors", updateColors )
+updateColors()		-- Update colors right away in case of autorefresh
 
 local function cvarChanged( sv_cvar, cl_cvar, ply, old_value, new_value )
 	sv_cvar = sv_cvar:lower()

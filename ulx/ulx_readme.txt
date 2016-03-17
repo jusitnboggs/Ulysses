@@ -1,9 +1,9 @@
 Title: ULX Readme
 
 __ULX__
-Version 3.62
+Version 3.70
 
-*ULX v3.62 (released 00/00/00)*
+*ULX v3.70 (released 00/00/00)*
 
 ULX is an admin mod for GMod (<http://garrysmod.com/>).
 
@@ -21,6 +21,7 @@ ULX is brought to you by..
 * Brett "Megiddo" Smith - Contact: <megiddo@ulyssesmod.net>
 * JamminR - Contact: <jamminr@ulyssesmod.net>
 * Stickly Man! - Contact: <sticklyman@ulyssesmod.net>
+* MrPresident - Contact: <mrpresident@ulyssesmod.net>
 
 Group: Requirements
 
@@ -61,9 +62,46 @@ also access the menu by saying "!menu".__
 Check out the configs folder in ulx for some more goodies.
 
 Group: Changelog
-v3.62 - *(00/00/00)*
+v3.70 - *(00/00/00)*
+	* [ADD] XGUI: Ability to set the 'nextlevel' cvar from the maps tab, if you have access to "ulx map".
+	* [ADD] Reason to votekick log (Thanks, CSchulz).
+	* [ADD] Steam ID parameter to "ulx who" to lookup users by Steam ID.
+	* [ADD] Cvar "ulx meChatEnabled" added to enable or disable the /me chat feature, or set it to Sandbox only.
+	* [ADD] XGUI: Added methods for developers to be able to open a specific client or server setting module.
+	* [FIX] The usual random slew of Garry-breakages (Thanks, Fuzzik).
+	* [FIX] Changing weapons while cloaked would keep them hidden when uncloaked. (Thanks, TheRealAyCe).
+	* [FIX] XGUI: Error if the default settings/users.txt file was missing.
+	* [FIX] Gamemode list includes workshop addons now (Thanks, jason2010).
+	* [FIX] "ulx ent" parameter parsing (Thanks, Zombine).
+	* [FIX] "ulx voteban" can now ban the user even if they disconnect after the vote starts.
+	* [FIX] Vote commands now work properly from server console.
+	* [FIX] XGUI: Numerous issues with selecting a custom Derma/GWEN skin.
+	* [FIX] XGUI: Clientside settings would not save if the client's data/ulx folder did not exist.
+	* [FIX] Improved how well ULX/XGUI files and XGUI clientside/serverside modules handle being autorefreshed.
+	* [FIX] ulx.addToHelpManually now checks for and removes and previously added manual help entries with the same command name.
+	* [FIX] XGUI: Bug where ulx_showMotd cvar would not be updated properly when changed by someone else.
+	* [FIX] XGUI: Minor performance exploit involving serverside ban sorting. (Thanks, TomatoCo).
+	* [FIX] Exploit involving gmod filesystem mounting. (Thanks, Willox).
+	* [FIX] Minor issue where opposite commands might not be run due to case sensitivity.
+	* [FIX] Duplicate help entries due to autorefresh and overriding commands. (Thanks iSnipeu).
+	* [FIX] Ragdolled players were getting removed on map cleanup.
+	* [FIX] XGUI: Server error in some cases when sorting bans by Unban Date after a new ban has been added.
+	* [FIX] XGUI: Right-clicking an advert group and renaming it was broken.
+	* [CHANGE] MOTD now uses DHTML (Awesomium framework).
+	* [CHANGE] Hook calls to match ULib's new format.
+	* [CHANGE] ULX convar updates will now append an entry to data/config.txt if it is not defined in the file. Previously, these changes would not be saved.
+	* [CHANGE] You can now spectate another player while spectating someone else.
+	* [CHANGE] XGUI: No longer autoexecutes skins to ensure they have been installed.
+	* [CHANGE] XGUI: Added "name" parameter to xgui.hookEvent to prevent event duplication. (Aids with autorefresh, is backwards compatible with old XGUI modules)
+	* [CHANGE] XGUI: Modules that no longer exist will be removed from the customizable sort order.
+	* [CHANGE] XGUI: Sliders for arguments on the Cmds tab with a small min/max delta (e.g. from 0 to 1) will now allow up to 2 decimal places, if the arg does not have cmds.round flag.
+
+v3.62 - *(03/09/15)*
 	* [ADD] "ulx return" to return target to previous location they were in before a teleport command was used (Thanks for the idea, ludalex).
 	* [ADD] Networked variables for gimp, mute, and gag (Thanks iSnipeu).
+	* [ADD] XGUI: Added more sorting and filtering options for bans.
+	* [ADD] "ulx stopvote" to stop a vote currently in progress (Thanks, LuaTenshi).
+	* [ADD] XGUI: Added "onClose" event for modules that need it. (Suggested by arduinium).
 	* [FIX] Ban reason and the person who started the voteban is now reported in "ulx voteban" bans (Thanks iSnipeu).
 	* [FIX] An API change causing an error to be thrown at the end of "ulx maul" (Thanks Decicus).
 	* [FIX] NULL entity error after votekick on a player that left the server, now sends message stating that votekicked player already left.
@@ -73,10 +111,19 @@ v3.62 - *(00/00/00)*
 	* [FIX] Garry's Mod update caused users to be banned faster than expected, log then incorrectly stated that (Console) was banned.
 	* [FIX] Garry's Mod update prevented votebans from working.
 	* [FIX] Garry's Mod update caused server crash when kicking/banning yourself via chat command.
-	* [FIX] "ulx groupallow" did not allow for access tags that targeted non fully-lowercased groups. (Thanks BryanFlannery).
+	* [FIX] Bug with spectate and respawning (Thanks Sjokomelk).
+	* [FIX] Bug when changing weapons while cloaked, weapons would stay invisible after uncloaking. (Thanks Z0mb1n3).
+	* [FIX] Could not assign BOTs to groups via ulx adduserid or XGUI. (Thanks RhapsodySL).
+	* [FIX] Fixed bug where XGUI would not start on dev branch of Garry's Mod. Changed to init on ULib.HOOK_LOCALPLAYERREADY instead of ULib.HOOK_UCLAUTH.
+	* [FIX] MOTD not enabled message would display for all players instead of the player who tried to open the motd. (Thanks TheClonker).
 	* [CHANGE] "PlayerSay" hooks are now only called serverside. (Thanks NoBrainCZ).
 	* [CHANGE] Logging now prints how long a user took to join the server.
 	* [CHANGE] XGUI: Updated cvarlist for sandbox and wiremod limits.
+	* [CHANGE] XGUI: Many Ban menu improvements. Entire banlist is no longer sent on join- data subset is now requested by the client and sent from the server.
+	* [CHANGE] XGUI: Ban list is now paginated instead of a giant scrollable list.
+	* [CHANGE] XGUI: ULX Bans and other (or "Source Bans") are no longer separated.
+	* [CHANGE] ULX vote variable is now global so other addons can tell if a vote is in progress. ulx.doVote() also returns whether or not it actually started a vote (Thanks for the ideas, arduinium).
+	* [CHANGE] XGUI: Changed gamemode dropdown on maps tab to honor player/group restrictions. (Thanks chaos12135).
 
 v3.61 - *(08/30/13)*
 	* [ADD] cl_pickupplayers (defaults to 1) to allow an admin to disable the ability to pickup players (so they don't do it on accident). Done in collaboration with FPtje.

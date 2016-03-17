@@ -32,6 +32,26 @@ xlib.makebutton{ x=5, y=307, w=150, label="Save Clientside Settings", parent=cli
 	xgui.saveClientSettings()
 end
 
+function xgui.openClientModule( name )
+	name = string.lower( name )
+	for i = 1, #xgui.modules.submodule do
+		local module = xgui.modules.submodule[i]
+		if module.mtype == "client" and string.lower(module.name) == name then
+			if module.panel ~= client.curPanel then
+				client.catList:ClearSelection()
+				for i=1, #client.catList.Lines do
+					local line = client.catList.Lines[i]
+					if string.lower(line:GetColumnText(1)) == name then
+						client.catList:SelectItem( line )
+						break
+					end
+				end
+			end
+			break
+		end
+	end
+end
+
 --Process modular settings
 function client.processModules()
 	client.catList:Clear()
@@ -53,7 +73,7 @@ function client.processModules()
 end
 client.processModules()
 
-xgui.hookEvent( "onProcessModules", nil, client.processModules )
+xgui.hookEvent( "onProcessModules", nil, client.processModules, "xguiProcessModules" )
 xgui.addSettingModule( "Client", client, "icon16/layout_content.png" )
 
 
@@ -65,7 +85,7 @@ function genpnl.processModules()
 	genpnl.pickupplayers:SetDisabled( not LocalPlayer():query( "ulx physgunplayer" ) )
 end
 
-xgui.hookEvent( "onProcessModules", nil, genpnl.processModules )
+xgui.hookEvent( "onProcessModules", nil, genpnl.processModules, "clientGeneralProcessModules" )
 xgui.addSubModule( "General Settings", genpnl, nil, "client" )
 
 --------------------XGUI Clientside Module--------------------
@@ -83,7 +103,7 @@ databutton.DoClick=function( self )
 		if xgui.isInstalled then  --We can't be in offline mode to do this
 			self:SetDisabled( true )
 			RunConsoleCommand( "xgui", "refreshdata" )
-			timer.Simple( 30, function() self:SetDisabled( false ) end )
+			timer.Simple( 10, function() self:SetDisabled( false ) end )
 		end
 	end
 end
@@ -105,10 +125,6 @@ end
 ----------------
 --SKIN MANAGER--
 ----------------
---Include the extra skins in case nothing else has included them.
-for _, file in ipairs( file.Find( "skins/*.lua", "LUA" ) ) do
-	include( "skins/" .. file )
-end
 xlib.makelabel{ x=10, y=273, label="Derma Theme:", parent=xguipnl }
 xguipnl.skinselect = xlib.makecombobox{ x=10, y=290, w=150, parent=xguipnl }
 if not derma.SkinList[xgui.settings.skin] then
@@ -132,16 +148,27 @@ xguipnl.mainorder:AddColumn( "Main Modules" )
 xguipnl.mainorder.OnRowSelected = function( self, LineID, Line )
 	xguipnl.upbtnM:SetDisabled( LineID <= 1 )
 	xguipnl.downbtnM:SetDisabled( LineID >= #xgui.settings.moduleOrder )
-end 
+end
 xguipnl.updateMainOrder = function()
 	local selected = xguipnl.mainorder:GetSelectedLine() and xguipnl.mainorder:GetSelected()[1]:GetColumnText(1)
 	xguipnl.mainorder:Clear()
 	for i, v in ipairs( xgui.settings.moduleOrder ) do
-		local l = xguipnl.mainorder:AddLine( v )
-		if v == selected then xguipnl.mainorder:SelectItem( l ) end
+		local found = false
+		for _, tab in pairs( xgui.modules.tab ) do
+			if tab.name == v then
+				found = true
+				break
+			end
+		end
+		if found then
+			local l = xguipnl.mainorder:AddLine( v )
+			if v == selected then xguipnl.mainorder:SelectItem( l ) end
+		else
+			table.remove( xgui.settings.moduleOrder, i )
+		end
 	end
 end
-xgui.hookEvent( "onProcessModules", nil, xguipnl.updateMainOrder )
+xgui.hookEvent( "onProcessModules", nil, xguipnl.updateMainOrder, "clientXGUIUpdateTabOrder" )
 xguipnl.upbtnM = xlib.makebutton{ x=250, y=120, w=20, icon="icon16/bullet_arrow_up.png", centericon=true, disabled=true, parent=xguipnl }
 xguipnl.upbtnM.DoClick = function( self )
 	self:SetDisabled( true )
@@ -165,16 +192,27 @@ xguipnl.settingorder:AddColumn( "Setting Modules" )
 xguipnl.settingorder.OnRowSelected = function( self, LineID, Line )
 	xguipnl.upbtnS:SetDisabled( LineID <= 1 )
 	xguipnl.downbtnS:SetDisabled( LineID >= #xgui.settings.settingOrder )
-end 
+end
 xguipnl.updateSettingOrder = function()
 	local selected = xguipnl.settingorder:GetSelectedLine() and xguipnl.settingorder:GetSelected()[1]:GetColumnText(1)
 	xguipnl.settingorder:Clear()
 	for i, v in ipairs( xgui.settings.settingOrder ) do
-		local l = xguipnl.settingorder:AddLine( v )
-		if v == selected then xguipnl.settingorder:SelectItem( l ) end
+		local found = false
+		for _, tab in pairs( xgui.modules.setting ) do
+			if tab.name == v then
+				found = true
+				break
+			end
+		end
+		if found then
+			local l = xguipnl.settingorder:AddLine( v )
+			if v == selected then xguipnl.settingorder:SelectItem( l ) end
+		else
+			table.remove( xgui.settings.settingOrder, i )
+		end
 	end
 end
-xgui.hookEvent( "onProcessModules", nil, xguipnl.updateSettingOrder )
+xgui.hookEvent( "onProcessModules", nil, xguipnl.updateSettingOrder, "clientXGUIUpdateSettingOrder" )
 xguipnl.upbtnS = xlib.makebutton{ x=395, y=120, w=20, icon="icon16/bullet_arrow_up.png", centericon=true, disabled=true, parent=xguipnl }
 xguipnl.upbtnS.DoClick = function( self )
 	self:SetDisabled( true )

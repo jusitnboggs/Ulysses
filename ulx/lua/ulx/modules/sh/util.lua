@@ -1,20 +1,35 @@
 local CATEGORY_NAME = "Utility"
 
-function ulx.who( calling_ply )
-	ULib.console( calling_ply, "ID Name                            Group" )
+function ulx.who( calling_ply, steamid )
+	if not steamid or steamid == "" then
+		ULib.console( calling_ply, "ID Name                            Group" )
 
-	local players = player.GetAll()
-	for _, player in ipairs( players ) do
-		local id = tostring( player:UserID() )
-		local nick = player:Nick()
-		local text = string.format( "%i%s %s%s ", id, string.rep( " ", 2 - id:len() ), nick, string.rep( " ", 31 - nick:len() ) )
+		local players = player.GetAll()
+		for _, player in ipairs( players ) do
+			local id = tostring( player:UserID() )
+			local nick = player:Nick()
+			local text = string.format( "%i%s %s%s ", id, string.rep( " ", 2 - id:len() ), nick, string.rep( " ", 31 - nick:len() ) )
 
-		text = text .. player:GetUserGroup()
+			text = text .. player:GetUserGroup()
 
-		ULib.console( calling_ply, text )
+			ULib.console( calling_ply, text )
+		end
+	else
+		data = ULib.ucl.getUserInfoFromID( steamid )
+
+		if not data then
+			ULib.console( calling_ply, "No information for provided id exists" )
+		else
+			ULib.console( calling_ply, "   ID: " .. steamid )
+			ULib.console( calling_ply, " Name: " .. data.name )
+			ULib.console( calling_ply, "Group: " .. data.group )
+		end
+
+
 	end
 end
 local who = ulx.command( CATEGORY_NAME, "ulx who", ulx.who )
+who:addParam{ type=ULib.cmds.StringArg, hint="steamid", ULib.cmds.optional }
 who:defaultAccess( ULib.ACCESS_ALL )
 who:help( "See information about currently online users." )
 
@@ -42,7 +57,8 @@ function ulx.kick( calling_ply, target_ply, reason )
 		reason = nil
 		ulx.fancyLogAdmin( calling_ply, "#A kicked #T", target_ply )
 	end
-	ULib.kick( target_ply, reason, calling_ply )
+	-- Delay by 1 frame to ensure the chat hook finishes with player intact. Prevents a crash.
+	ULib.queueFunctionCall( ULib.kick, target_ply, reason, calling_ply )
 end
 local kick = ulx.command( CATEGORY_NAME, "ulx kick", ulx.kick, "!kick" )
 kick:addParam{ type=ULib.cmds.PlayerArg }
@@ -61,8 +77,8 @@ function ulx.ban( calling_ply, target_ply, minutes, reason )
 	local str = "#A banned #T " .. time
 	if reason and reason ~= "" then str = str .. " (#s)" end
 	ulx.fancyLogAdmin( calling_ply, str, target_ply, minutes ~= 0 and minutes or reason, reason )
-
-	ULib.kickban( target_ply, minutes, reason, calling_ply )
+	-- Delay by 1 frame to ensure any chat hook finishes with player intact. Prevents a crash.
+	ULib.queueFunctionCall( ULib.kickban, target_ply, minutes, reason, calling_ply )
 end
 local ban = ulx.command( CATEGORY_NAME, "ulx ban", ulx.ban, "!ban" )
 ban:addParam{ type=ULib.cmds.PlayerArg }
@@ -97,8 +113,8 @@ function ulx.banid( calling_ply, steamid, minutes, reason )
 	str = str .. time
 	if reason and reason ~= "" then str = str .. " (#4s)" end
 	ulx.fancyLogAdmin( calling_ply, str, displayid, minutes ~= 0 and minutes or reason, reason )
-
-	ULib.addBan( steamid, minutes, reason, name, calling_ply )
+	-- Delay by 1 frame to ensure any chat hook finishes with player intact. Prevents a crash.
+	ULib.queueFunctionCall( ULib.addBan, steamid, minutes, reason, name, calling_ply )
 end
 local banid = ulx.command( CATEGORY_NAME, "ulx banid", ulx.banid )
 banid:addParam{ type=ULib.cmds.StringArg, hint="steamid" }
@@ -116,7 +132,7 @@ function ulx.unban( calling_ply, steamid )
 
 	name = ULib.bans[ steamid ] and ULib.bans[ steamid ].name
 
-	ULib.unban( steamid )
+	ULib.unban( steamid, calling_ply )
 	if name then
 		ulx.fancyLogAdmin( calling_ply, "#A unbanned steamid #s", steamid .. " (" .. name .. ")" )
 	else
@@ -165,6 +181,13 @@ function ulx.spectate( calling_ply, target_ply )
 		return
 	end
 
+	-- Check if player is already spectating. If so, stop spectating so we can start again
+	local hookTable = hook.GetTable()["KeyPress"]
+	if hookTable and hookTable["ulx_unspectate_" .. calling_ply:EntIndex()] then
+		-- Simulate keypress to properly exit spectate.
+		hook.Call( "KeyPress", _, calling_ply, IN_FORWARD )
+	end
+
 	if ulx.getExclusive( calling_ply, calling_ply ) then
 		ULib.tsayError( calling_ply, ulx.getExclusive( calling_ply, calling_ply ), true )
 		return
@@ -174,28 +197,41 @@ function ulx.spectate( calling_ply, target_ply )
 
 	local pos = calling_ply:GetPos()
 	local ang = calling_ply:GetAngles()
+
+	local function stopSpectate( player )
+		if player ~= calling_ply then -- For the spawning, make sure it's them doing the spawning
+			return
+		end
+
+		hook.Remove( "PlayerSpawn", "ulx_unspectatedspawn_" .. calling_ply:EntIndex() )
+		hook.Remove( "KeyPress", "ulx_unspectate_" .. calling_ply:EntIndex() )
+		hook.Remove( "PlayerDisconnected", "ulx_unspectatedisconnect_" .. calling_ply:EntIndex() )
+
+		if player.ULXHasGod then player:GodEnable() end -- Restore if player had ulx god.
+		player:UnSpectate() -- Need this for DarkRP for some reason, works fine without it in sbox
+		ulx.fancyLogAdmin( calling_ply, true, "#A stopped spectating #T", target_ply )
+		ulx.clearExclusive( calling_ply )
+	end
+	hook.Add( "PlayerSpawn", "ulx_unspectatedspawn_" .. calling_ply:EntIndex(), stopSpectate, HOOK_MONITOR_HIGH )
+
 	local function unspectate( player, key )
 		if calling_ply ~= player then return end -- Not the person we want
 		if key ~= IN_FORWARD and key ~= IN_BACK and key ~= IN_MOVELEFT and key ~= IN_MOVERIGHT then return end -- Not a key we're interested in
 
+		hook.Remove( "PlayerSpawn", "ulx_unspectatedspawn_" .. calling_ply:EntIndex() ) -- Otherwise spawn would cause infinite loop
 		ULib.spawn( player, true ) -- Get out of spectate.
-		if player.ULXHasGod then player:GodEnable() end -- Restore if player had ulx god.
-		player:UnSpectate() -- Need this for DarkRP for some reason, works fine without it in sbox
+		stopSpectate( player )
 		player:SetPos( pos )
 		player:SetAngles( ang )
-		ulx.fancyLogAdmin( calling_ply, true, "#A stopped spectating #T", target_ply )
-		hook.Remove( "KeyPress", "ulx_unspectate_" .. calling_ply:EntIndex() )
-		hook.Remove( "PlayerDisconnected", "ulx_unspectatedisconnect_" .. calling_ply:EntIndex() )
-		ulx.clearExclusive( calling_ply )
 	end
-	hook.Add( "KeyPress", "ulx_unspectate_" .. calling_ply:EntIndex(), unspectate )
+	hook.Add( "KeyPress", "ulx_unspectate_" .. calling_ply:EntIndex(), unspectate, HOOK_MONITOR_LOW )
 
 	local function disconnect( player ) -- We want to watch for spectator or target disconnect
 		if player == target_ply or player == calling_ply then -- Target or spectator disconnecting
 			unspectate( calling_ply, IN_FORWARD )
 		end
 	end
-	hook.Add( "PlayerDisconnected", "ulx_unspectatedisconnect_" .. calling_ply:EntIndex(), disconnect )
+	hook.Add( "PlayerDisconnected", "ulx_unspectatedisconnect_" .. calling_ply:EntIndex(), disconnect, HOOK_MONITOR_HIGH )
 
 	calling_ply:Spectate( OBS_MODE_IN_EYE )
 	calling_ply:SpectateEntity( target_ply )
@@ -249,7 +285,7 @@ function ulx.debuginfo( calling_ply )
 		str = str .. plyline .. "\n"
 	end
 
-	local gmoddefault = util.KeyValuesToTable( ULib.fileRead( "settings/users.txt" ) )
+	local gmoddefault = util.KeyValuesToTable( ULib.fileRead( "settings/users.txt", true ) )
 	str = str .. "\n\nULib.ucl.users (#=" .. table.Count( ULib.ucl.users ) .. "):\n" .. ulx.dumpTable( ULib.ucl.users, 1 ) .. "\n\n"
 	str = str .. "ULib.ucl.groups (#=" .. table.Count( ULib.ucl.groups ) .. "):\n" .. ulx.dumpTable( ULib.ucl.groups, 1 ) .. "\n\n"
 	str = str .. "ULib.ucl.authed (#=" .. table.Count( ULib.ucl.authed ) .. "):\n" .. ulx.dumpTable( ULib.ucl.authed, 1 ) .. "\n\n"
@@ -327,7 +363,7 @@ if SERVER then
 	local ulx_kickAfterNameChanges = 			ulx.convar( "kickAfterNameChanges", "0", "<number> - Players can only change their name x times every ulx_kickAfterNameChangesCooldown seconds. 0 to disable.", ULib.ACCESS_ADMIN )
 	local ulx_kickAfterNameChangesCooldown = 	ulx.convar( "kickAfterNameChangesCooldown", "60", "<time> - Players can change their name ulx_kickAfterXNameChanges times every x seconds.", ULib.ACCESS_ADMIN )
 	local ulx_kickAfterNameChangesWarning = 	ulx.convar( "kickAfterNameChangesWarning", "1", "<1/0> - Display a warning to users to let them know how many more times they can change their name.", ULib.ACCESS_ADMIN )
-	nameChangeTable = {}
+	ulx.nameChangeTable = ulx.nameChangeTable or {}
 
 	local function checkNameChangeLimit( ply, oldname, newname )
 		local maxAttempts = ulx_kickAfterNameChanges:GetInt()
@@ -335,19 +371,19 @@ if SERVER then
 		local showWarning = ulx_kickAfterNameChangesWarning:GetInt()
 
 		if maxAttempts ~= 0 then
-			if not nameChangeTable[ply:SteamID()] then
-				nameChangeTable[ply:SteamID()] = {}
+			if not ulx.nameChangeTable[ply:SteamID()] then
+				ulx.nameChangeTable[ply:SteamID()] = {}
 			end
 
-			for i=#nameChangeTable[ply:SteamID()], 1, -1 do
-				if CurTime() - nameChangeTable[ply:SteamID()][i] > duration then
-					table.remove( nameChangeTable[ply:SteamID()], i )
+			for i=#ulx.nameChangeTable[ply:SteamID()], 1, -1 do
+				if CurTime() - ulx.nameChangeTable[ply:SteamID()][i] > duration then
+					table.remove( ulx.nameChangeTable[ply:SteamID()], i )
 				end
 			end
 
-			table.insert( nameChangeTable[ply:SteamID()], CurTime() )
+			table.insert( ulx.nameChangeTable[ply:SteamID()], CurTime() )
 
-			local curAttempts = #nameChangeTable[ply:SteamID()]
+			local curAttempts = #ulx.nameChangeTable[ply:SteamID()]
 
 			if curAttempts >= maxAttempts then
 				ULib.kick( ply, "Changed name too many times" )
@@ -381,7 +417,7 @@ local function playerPickup( ply, ent )
 		return true
 	end
 end
-hook.Add( "PhysgunPickup", "ulxPlayerPickup", playerPickup, -5 ) -- Allow admins to move players. Call before the prop protection hook.
+hook.Add( "PhysgunPickup", "ulxPlayerPickup", playerPickup, HOOK_HIGH ) -- Allow admins to move players. Call before the prop protection hook.
 if SERVER then ULib.ucl.registerAccess( "ulx physgunplayer", ULib.ACCESS_ADMIN, "Ability to physgun other players", "Other" ) end
 
 local function playerDrop( ply, ent )

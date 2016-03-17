@@ -1,7 +1,9 @@
 local CATEGORY_NAME = "User Management"
 
 local function checkForValidId( calling_ply, id )
-	if id:find( "%." ) then -- Assume IP and check
+	if id == "BOT" or id == "NULL" then -- Bot check
+		return true
+	elseif id:find( "%." ) then -- Assume IP and check
 	 	if not ULib.isValidIP( id ) then
 			ULib.tsayError( calling_ply, "Invalid IP.", true )
 			return false
@@ -120,11 +122,11 @@ removeuserid:defaultAccess( ULib.ACCESS_SUPERADMIN )
 removeuserid:help( "Permanently removes a user's access by ID." )
 
 function ulx.userallow( calling_ply, target_ply, access_string, access_tag )
-	if access_tag then access_tag = access_tag:lower() end
+	if access_tag then access_tag = access_tag end
 
 	local accessTable
 	if access_tag and access_tag ~= "" then
-		accessTable = { [access_string]=access_tag:lower() }
+		accessTable = { [access_string]=access_tag }
 	else
 		accessTable = { access_string }
 	end
@@ -151,7 +153,7 @@ userallow:defaultAccess( ULib.ACCESS_SUPERADMIN )
 userallow:help( "Add to a user's access." )
 
 function ulx.userallowid( calling_ply, id, access_string, access_tag )
-	if access_tag then access_tag = access_tag:lower() end
+	if access_tag then access_tag = access_tag end
 	id = id:upper() -- Steam id needs to be upper
 
 	-- Check for valid and properly formatted ID
@@ -164,7 +166,7 @@ function ulx.userallowid( calling_ply, id, access_string, access_tag )
 
 	local accessTable
 	if access_tag and access_tag ~= "" then
-		accessTable = { [access_string]=access_tag:lower() }
+		accessTable = { [access_string]=access_tag }
 	else
 		accessTable = { access_string }
 	end
@@ -343,7 +345,7 @@ groupallow:help( "Add to a group's access." )
 function ulx.groupdeny( calling_ply, group_name, access_string )
 	local accessTable
 	if access_tag and access_tag ~= "" then
-		accessTable = { [access_string]=access_tag:lower() }
+		accessTable = { [access_string]=access_tag }
 	else
 		accessTable = { access_string }
 	end

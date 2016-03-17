@@ -6,17 +6,16 @@ local CATEGORY_NAME = "Voting"
 if SERVER then ulx.convar( "voteEcho", "0", _, ULib.ACCESS_SUPERADMIN ) end -- Echo votes?
 
 -- First, our helper function to make voting so much easier!
-local voteInProgress
 function ulx.doVote( title, options, callback, timeout, filter, noecho, ... )
 	timeout = timeout or 20
-	if voteInProgress then
+	if ulx.voteInProgress then
 		Msg( "Error! ULX tried to start a vote when another vote was in progress!\n" )
-		return
+		return false
 	end
 
 	if not options[ 1 ] or not options[ 2 ] then
 		Msg( "Error! ULX tried to start a vote without at least two options!\n" )
-		return
+		return false
 	end
 
 	local voters = 0
@@ -37,18 +36,20 @@ function ulx.doVote( title, options, callback, timeout, filter, noecho, ... )
 		ULib.umsgSend( options )
 	umsg.End()
 
-	voteInProgress = { callback=callback, options=options, title=title, results={}, voters=voters, votes=0, noecho=noecho, args={...} }
+	ulx.voteInProgress = { callback=callback, options=options, title=title, results={}, voters=voters, votes=0, noecho=noecho, args={...} }
 
 	timer.Create( "ULXVoteTimeout", timeout, 1, ulx.voteDone )
+
+	return true
 end
 
 function ulx.voteCallback( ply, command, argv )
-	if not voteInProgress then
+	if not ulx.voteInProgress then
 		ULib.tsayError( ply, "There is not a vote in progress" )
 		return
 	end
 
-	if not argv[ 1 ] or not tonumber( argv[ 1 ] ) or not voteInProgress.options[ tonumber( argv[ 1 ] ) ] then
+	if not argv[ 1 ] or not tonumber( argv[ 1 ] ) or not ulx.voteInProgress.options[ tonumber( argv[ 1 ] ) ] then
 		ULib.tsayError( ply, "Invalid or out of range vote." )
 		return
 	end
@@ -58,38 +59,40 @@ function ulx.voteCallback( ply, command, argv )
 		return
 	end
 
-	local echo = util.tobool( GetConVarNumber( "ulx_voteEcho" ) )
+	local echo = ULib.toBool( GetConVarNumber( "ulx_voteEcho" ) )
 	local id = tonumber( argv[ 1 ] )
-	voteInProgress.results[ id ] = voteInProgress.results[ id ] or 0
-	voteInProgress.results[ id ] = voteInProgress.results[ id ] + 1
+	ulx.voteInProgress.results[ id ] = ulx.voteInProgress.results[ id ] or 0
+	ulx.voteInProgress.results[ id ] = ulx.voteInProgress.results[ id ] + 1
 
-	voteInProgress.votes = voteInProgress.votes + 1
+	ulx.voteInProgress.votes = ulx.voteInProgress.votes + 1
 
 	ply.ulxVoted = true -- Tag them as having voted
 
-	local str = ply:Nick() .. " voted for: " .. voteInProgress.options[ id ]
-	if echo and not voteInProgress.noecho then
+	local str = ply:Nick() .. " voted for: " .. ulx.voteInProgress.options[ id ]
+	if echo and not ulx.voteInProgress.noecho then
 		ULib.tsay( _, str ) -- TODO, color?
 	end
 	ulx.logString( str )
 	if game.IsDedicated() then Msg( str .. "\n" ) end
 
-	if voteInProgress.votes >= voteInProgress.voters then
-		timer.Destroy( "ULXVoteTimeout" )
+	if ulx.voteInProgress.votes >= ulx.voteInProgress.voters then
 		ulx.voteDone()
 	end
 end
 if SERVER then concommand.Add( "ulx_vote", ulx.voteCallback ) end
 
-function ulx.voteDone()
+function ulx.voteDone( cancelled )
 	local players = player.GetAll()
 	for _, ply in ipairs( players ) do -- Clear voting tags
 		ply.ulxVoted = nil
 	end
 
-	local vip = voteInProgress
-	voteInProgress = nil
-	ULib.pcallError( vip.callback, vip, unpack( vip.args, 1, 10 ) ) -- Unpack is explicit in length to avoid odd LuaJIT quirk.
+	local vip = ulx.voteInProgress
+	ulx.voteInProgress = nil
+	timer.Remove( "ULXVoteTimeout" )
+	if not cancelled then
+		ULib.pcallError( vip.callback, vip, unpack( vip.args, 1, 10 ) ) -- Unpack is explicit in length to avoid odd LuaJIT quirk.
+	end
 end
 -- End our helper functions
 
@@ -120,7 +123,7 @@ local function voteDone( t )
 end
 
 function ulx.vote( calling_ply, title, ... )
-	if voteInProgress then
+	if ulx.voteInProgress then
 		ULib.tsayError( calling_ply, "There is already a vote in progress. Please wait for the current one to end.", true )
 		return
 	end
@@ -134,6 +137,19 @@ vote:addParam{ type=ULib.cmds.StringArg, hint="options", ULib.cmds.takeRestOfLin
 vote:defaultAccess( ULib.ACCESS_ADMIN )
 vote:help( "Starts a public vote." )
 
+-- Stop a vote in progress
+function ulx.stopVote( calling_ply )
+	if not ulx.voteInProgress then
+		ULib.tsayError( calling_ply, "There is no vote currently in progress.", true )
+		return
+	end
+
+	ulx.voteDone( true )
+	ulx.fancyLogAdmin( calling_ply, "#A has stopped the current vote." )
+end
+local stopvote = ulx.command( CATEGORY_NAME, "ulx stopvote", ulx.stopVote, "!stopvote" )
+stopvote:defaultAccess( ULib.ACCESS_SUPERADMIN )
+stopvote:help( "Stops a vote in progress." )
 
 local function voteMapDone2( t, changeTo, ply )
 	local shouldChange = false
@@ -165,20 +181,27 @@ local function voteMapDone( t, argv, ply )
 	local minVotes = GetConVarNumber( "ulx_votemap2Minvotes" )
 	local str
 	local changeTo
+	-- Figure out the map to change to, if we're changing
+	if #argv > 1 then
+		changeTo = t.options[ winner ]
+	else
+		changeTo = argv[ 1 ]
+	end
+
 	if (#argv < 2 and winner ~= 1) or not winner or winnernum < minVotes or winnernum / t.voters < ratioNeeded then
 		str = "Vote results: Vote was unsuccessful."
-	else
+	elseif ply:IsValid() then
 		str = "Vote results: Option '" .. t.options[ winner ] .. "' won, changemap pending approval. (" .. winnernum .. "/" .. t.voters .. ")"
 
-		-- Figure out the map to change to.
-		if #argv > 1 then
-			changeTo = t.options[ winner ]
-		else
-			changeTo = argv[ 1 ]
-		end
-
 		ulx.doVote( "Accept result and changemap to " .. changeTo .. "?", { "Yes", "No" }, voteMapDone2, 30000, { ply }, true, changeTo, ply )
+	else -- It's the server console, let's roll with it
+		str = "Vote results: Option '" .. t.options[ winner ] .. "' won. (" .. winnernum .. "/" .. t.voters .. ")"
+		ULib.tsay( _, str )
+		ulx.logString( str )
+		ULib.consoleCommand( "changelevel " .. changeTo .. "\n" )
+		return
 	end
+
 	ULib.tsay( _, str ) -- TODO, color?
 	ulx.logString( str )
 	if game.IsDedicated() then Msg( str .. "\n" ) end
@@ -187,7 +210,7 @@ end
 function ulx.votemap2( calling_ply, ... )
 	local argv = { ... }
 
-	if voteInProgress then
+	if ulx.voteInProgress then
 		ULib.tsayError( calling_ply, "There is already a vote in progress. Please wait for the current one to end.", true )
 		return
 	end
@@ -252,11 +275,14 @@ local function voteKickDone( t, target, time, ply, reason )
 	if winner ~= 1 or winnernum < minVotes or winnernum / t.voters < ratioNeeded then
 		str = "Vote results: User will not be kicked. (" .. (results[ 1 ] or "0") .. "/" .. t.voters .. ")"
 	else
-		if target:IsValid() then
+		if not target:IsValid() then
+			str = "Vote results: User voted to be kicked, but has already left."
+		elseif ply:IsValid() then
 			str = "Vote results: User will now be kicked, pending approval. (" .. winnernum .. "/" .. t.voters .. ")"
 			ulx.doVote( "Accept result and kick " .. target:Nick() .. "?", { "Yes", "No" }, voteKickDone2, 30000, { ply }, true, target, time, ply, reason )
-		else
-			str = "Vote results: User voted to be kicked, but has already left."
+		else -- Vote from server console, roll with it
+			str = "Vote results: User will now be kicked. (" .. winnernum .. "/" .. t.voters .. ")"
+			ULib.kick( target, "Vote kick successful." )
 		end
 	end
 
@@ -266,7 +292,7 @@ local function voteKickDone( t, target, time, ply, reason )
 end
 
 function ulx.votekick( calling_ply, target_ply, reason )
-	if voteInProgress then
+	if ulx.voteInProgress then
 		ULib.tsayError( calling_ply, "There is already a vote in progress. Please wait for the current one to end.", true )
 		return
 	end
@@ -277,7 +303,11 @@ function ulx.votekick( calling_ply, target_ply, reason )
 	end
 
 	ulx.doVote( msg, { "Yes", "No" }, voteKickDone, _, _, _, target_ply, time, calling_ply, reason )
-	ulx.fancyLogAdmin( calling_ply, "#A started a votekick against #T", target_ply )
+	if reason and reason ~= "" then
+		ulx.fancyLogAdmin( calling_ply, "#A started a votekick against #T (#s)", minutes, target_ply, reason )
+	else
+		ulx.fancyLogAdmin( calling_ply, "#A started a votekick against #T", minutes, target_ply )
+	end
 end
 local votekick = ulx.command( CATEGORY_NAME, "ulx votekick", ulx.votekick, "!votekick" )
 votekick:addParam{ type=ULib.cmds.PlayerArg }
@@ -289,27 +319,22 @@ if SERVER then ulx.convar( "votekickMinvotes", "2", _, ULib.ACCESS_ADMIN ) end -
 
 
 
-local function voteBanDone2( t, target, time, ply, reason )
+local function voteBanDone2( t, nick, steamid, time, ply, reason )
 	local shouldBan = false
 
 	if t.results[ 1 ] and t.results[ 1 ] > 0 then
-		ulx.logUserAct( ply, target, "#A approved the voteban against #T (" .. time .. " minutes) (" .. (reason or "") .. ")" )
+		ulx.fancyLogAdmin( ply, "#A approved the voteban against #s (#s minutes) (#s))", nick, time, reason or "" )
 		shouldBan = true
 	else
-		ulx.logUserAct( ply, target, "#A denied the voteban against #T" )
+		ulx.fancyLogAdmin( ply, "#A denied the voteban against #s", nick )
 	end
 
 	if shouldBan then
-		ULib.ban( target, time, reason, ply )
-		--[[if reason and reason ~= "" then
-			ULib.kick( target, "Vote ban successful. (" .. reason .. ")" )
-		else
-			ULib.kick( target, "Vote ban successful." )
-		end]]--
+		ULib.addBan( steamid, time, reason, nick, ply )
 	end
 end
 
-local function voteBanDone( t, target, time, ply, reason )
+local function voteBanDone( t, nick, steamid, time, ply, reason )
 	local results = t.results
 	local winner
 	local winnernum = 0
@@ -326,8 +351,14 @@ local function voteBanDone( t, target, time, ply, reason )
 	if winner ~= 1 or winnernum < minVotes or winnernum / t.voters < ratioNeeded then
 		str = "Vote results: User will not be banned. (" .. (results[ 1 ] or "0") .. "/" .. t.voters .. ")"
 	else
-		str = "Vote results: User will now be banned for " .. time .. " minutes, pending approval. (" .. winnernum .. "/" .. t.voters .. ")"
-		ulx.doVote( "Accept result and ban " .. target:Nick() .. "?", { "Yes", "No" }, voteBanDone2, 30000, { ply }, true, target, time, ply, reason )
+		reason = ("[ULX Voteban] " .. (reason or "")):Trim()
+		if ply:IsValid() then
+			str = "Vote results: User will now be banned, pending approval. (" .. winnernum .. "/" .. t.voters .. ")"
+			ulx.doVote( "Accept result and ban " .. nick .. "?", { "Yes", "No" }, voteBanDone2, 30000, { ply }, true, nick, steamid, time, ply, reason )
+		else -- Vote from server console, roll with it
+			str = "Vote results: User will now be banned. (" .. winnernum .. "/" .. t.voters .. ")"
+			ULib.addBan( steamid, time, reason, nick, ply )
+		end
 	end
 
 	ULib.tsay( _, str ) -- TODO, color?
@@ -336,7 +367,7 @@ local function voteBanDone( t, target, time, ply, reason )
 end
 
 function ulx.voteban( calling_ply, target_ply, minutes, reason )
-	if voteInProgress then
+	if ulx.voteInProgress then
 		ULib.tsayError( calling_ply, "There is already a vote in progress. Please wait for the current one to end.", true )
 		return
 	end
@@ -346,7 +377,7 @@ function ulx.voteban( calling_ply, target_ply, minutes, reason )
 		msg = msg .. " (" .. reason .. ")"
 	end
 
-	ulx.doVote( msg, { "Yes", "No" }, voteBanDone, _, _, _, target_ply, minutes, calling_ply, reason )
+	ulx.doVote( msg, { "Yes", "No" }, voteBanDone, _, _, _, target_ply:Nick(), target_ply:SteamID(), minutes, calling_ply, reason )
 	if reason and reason ~= "" then
 		ulx.fancyLogAdmin( calling_ply, "#A started a voteban of #i minute(s) against #T (#s)", minutes, target_ply, reason )
 	else
@@ -371,4 +402,4 @@ votemap:help( "Vote for a map, no args lists available maps." )
 -- Our veto command
 local veto = ulx.command( CATEGORY_NAME, "ulx veto", ulx.votemapVeto, "!veto" )
 veto:defaultAccess( ULib.ACCESS_ADMIN )
-veto:help( "Veto a successful votemap" )
+veto:help( "Veto a successful votemap." )

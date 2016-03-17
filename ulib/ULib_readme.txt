@@ -17,6 +17,7 @@ ULib is brought to you by..
 * Brett "Megiddo" Smith - Contact: <megiddo@ulyssesmod.net>
 * JamminR - Contact: <jamminr@ulyssesmod.net>
 * Stickly Man! - Contact: <sticklyman@ulyssesmod.net>
+* MrPresident - Contact: <mrpresident@ulyssesmod.net>
 
 Group: Requirements
 
@@ -45,12 +46,28 @@ Rest easy!
 
 Group: Changelog
 v2.60 - *(00/00/00)*
+	* [ADD] ULib.ucl.getUserInfoFromID for getting user info from an ID.
+	* [ADD] CAMI support.
+	* [ADD] "noMount" parameter to file-related APIs.
+	* [ADD] ULibGetUser(s)CustomKeyword hooks (Thanks, LuaTenshi).
+	* [FIX] The usual random slew of Garry-breakages (Thanks, Fuzzik).
+	* [FIX] An assumption regarding player authentication that led to a player's group being reset to user sometimes.
+	* [FIX] Garry API change for ULib.findinDir (Thanks, ascentechit).
+	* [FIX] Workaround for Garry's odd handling of bot UIDs (Thanks, BurgerLUA).
+	* [FIX] Improved how well ULib files handle being autorefreshed.
+	* [FIX] Exploitable console command could potentially cause errors and/or crashes.
+	* [FIX] Exploit involving file system mounting.
+	* [CHANGE] Hook system. It's much faster (CPU-wise) and a little easier to use now (Many thanks for input from darkjacky and Divran).
+
+v2.52 - *(03/09/15)*
+	* [ADD] Admin parameter to ULib.unban for overriding purposes (Thanks for the idea, MStruntze).
+	* [ADD] A list of players is presented when a target string for getUser matches more than one player (Thanks, RhapsodySL).
 	* [FIX] ULib.ucl.registerAccess not allowing an access tag to be registered to no groups.
 	* [FIX] Several incorrect file I/O calls (Thanks, Q4-Bi).
 	* [FIX] Hook priority being messed up for parent hook when hooks are called recursively (Thanks, NoBrainCZ).
-	* [FIX] ucl.groupAllow no longer lower-cases access tag to support case-insensitive groups.
-	* [FIX] Access strings are no longer lower-cased when being read from the groups.txt file.
-	* [CHANGE] ULib.getUsers now only lower-cases player names, groups are now case-sensitive.
+	* [FIX] Some fiddly-bits with group case-sensitivity (Thanks, BryanFlannery).
+	* [CHANGE] hook.Run to match Garry's changes.
+	* [CHANGE] ULib.HOOK_LOCALPLAYERREADY is now called on InitPostEntity instead of OnEntCreate.
 
 v2.51 - *(08/30/13)*
 	* [FIX] ULib.ucl.userAllow not working on disconnected players (Thanks, JackYack13).

@@ -17,7 +17,7 @@ function calcSlots( disconnect )
 
 		local players = player.GetAll()
 		for _, player in ipairs( players ) do
-			if player:IsConnected() and player:query( access ) then
+			if player:IsConnected() and ULib.ucl.authed[ player:UniqueID() ] and player:query( access ) then
 				admins = admins + 1
 			end
 		end
@@ -34,7 +34,7 @@ function calcSlots( disconnect )
 end
 
 local function updateSlots( ply, disconnect )
-	local visible = util.tobool( GetConVarString( "ulx_rslotsVisible" ) )
+	local visible = ULib.toBool( GetConVarString( "ulx_rslotsVisible" ) )
 	if not visible then -- Make sure our visible slots is up to date
 		local slots = calcSlots( disconnect )
 		local max = game.MaxPlayers()
@@ -48,7 +48,7 @@ local function playerAccess( ply )
 	local mode = GetConVarNumber( "ulx_rslotsMode" )
 	if mode == 0 then return end -- Off!
 
-	local visible = util.tobool( GetConVarString( "ulx_rslotsVisible" ) )
+	local visible = ULib.toBool( GetConVarString( "ulx_rslotsVisible" ) )
 	local slots = calcSlots()
 	local cur = #player.GetAll()
 	local max = game.MaxPlayers()
@@ -86,4 +86,4 @@ local function playerAccess( ply )
 		ULib.queueFunctionCall( ULib.kick, ply, "[ULX] Reserved slot, sorry!" ) -- Wait a frame so all access hooks can be called properly.
 	end
 end
-hook.Add( ULib.HOOK_UCLAUTH, "ULXReservedSlots", playerAccess, 20 ) -- Run at the end of auth
+hook.Add( ULib.HOOK_UCLAUTH, "ULXReservedSlots", playerAccess, HOOK_MONITOR_LOW ) -- Run at the end of auth

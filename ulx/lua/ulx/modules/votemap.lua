@@ -1,7 +1,7 @@
 ------------------
 --Public votemap--
 ------------------
-ulx.votemaps = {}
+ulx.votemaps = ulx.votemaps or {}
 local specifiedMaps = {}
 
 local function init()
@@ -45,7 +45,7 @@ function ulx.votemapVeto( calling_ply )
 		return
 	end
 
-	timer.Destroy( "ULXVotemap" )
+	timer.Remove( "ULXVotemap" )
 	ulx.timedVeto = nil
 	hook.Call( ulx.HOOK_VETO )
 	ULib.tsay( _, "Votemap changelevel halted.", true )
@@ -62,7 +62,7 @@ function ulx.clearVotemaps()
 end
 
 function ulx.votemap( calling_ply, map )
-	if not util.tobool( GetConVarNumber( "ulx_votemapEnabled" ) ) then
+	if not ULib.toBool( GetConVarNumber( "ulx_votemapEnabled" ) ) then
 		ULib.tsayError( calling_ply, "The votemap command has been disabled by a server admin.", true )
 		return
 	end

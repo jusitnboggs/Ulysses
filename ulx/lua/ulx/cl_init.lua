@@ -26,3 +26,17 @@ function ulx.clInit( v, r )
 	Msg( "ULX version " .. ulx.getVersion() .. " loaded.\n" )
 end
 usermessage.Hook( "ulx_initplayer", init )
+
+local function notifyAdminsForRepoChange( ply )
+	if ply:IsSuperAdmin() then
+		timer.Simple( 10, function()
+			chat.AddText( "************************************************************")
+			chat.AddText( "Hey ", ply, "! ULX has been moved to a different repository!")
+			chat.AddText( "Please visit http://ulyssesmod.net/ for more details.")
+			chat.AddText( "Update your server as soon as possible!")
+			chat.AddText( "************************************************************")
+		end)
+	end
+end
+hook.Add( "ULibLocalPlayerReady", "ULXRepoChangeCheck", notifyAdminsForRepoChange, HOOK_MONITOR_HIGH )
+ulx.notifyRepoChange = true

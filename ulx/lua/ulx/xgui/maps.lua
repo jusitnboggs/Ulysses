@@ -1,7 +1,7 @@
 --Maps module for ULX GUI -- by Stickly Man!
 --Lists maps on server, allows for map voting, changing levels, etc. All players may access this menu.
 
-ulx.votemaps = {}
+ulx.votemaps = ulx.votemaps or {}
 xgui.prepareDataType( "votemaps", ulx.votemaps )
 local maps = xlib.makepanel{ parent=xgui.null }
 
@@ -61,6 +61,9 @@ maps.vetomap.DoClick = function()
 	RunConsoleCommand( "ulx", "veto" )
 end
 
+maps.nextLevelLabel = xlib.makelabel{ x=382, y=13, label="Nextlevel (cvar)", parent=maps }
+maps.nextlevel = xlib.makecombobox{ x=382, y=30, w=180, h=20, repconvar="rep_nextlevel", convarblanklabel="<not specified>", parent=maps }
+
 function maps.addMaptoList( mapname, lastselected )
 	local line = maps.list:AddLine( mapname )
 	if table.HasValue( lastselected, mapname ) then
@@ -80,14 +83,23 @@ function maps.updateVoteMaps()
 	end
 
 	maps.list:Clear()
+	maps.nextlevel:Clear()
 
 	if LocalPlayer():query( "ulx map" ) then --Show all maps for admins who have access to change the level
 		maps.maplabel:SetText( "Server Maps (Votemaps are highlighted)" )
+		maps.nextlevel:AddChoice( "<not specified>" )
+		maps.nextlevel.ConVarUpdated( "nextlevel", "rep_nextlevel", nil, nil, GetConVar( "rep_nextlevel" ):GetString() )
+		maps.nextLevelLabel:SetAlpha(255);
+		maps.nextlevel:SetDisabled( false )
 		for _,v in ipairs( ulx.maps ) do
 			maps.addMaptoList( v, lastselected )
+			maps.nextlevel:AddChoice( v )
 		end
 	else
 		maps.maplabel:SetText( "Server Votemaps" )
+		maps.nextLevelLabel:SetAlpha(0);
+		maps.nextlevel:SetDisabled( true )
+		maps.nextlevel:SetAlpha(0);
 		for _,v in ipairs( ulx.votemaps ) do --Show the list of votemaps for users without access to "ulx map"
 			maps.addMaptoList( v, lastselected )
 		end
@@ -107,7 +119,13 @@ function maps.updateGamemodes()
 	maps.gamemode:Clear()
 	maps.gamemode:SetText( lastselected )
 	maps.gamemode:AddChoice( "<default>" )
-	for _, v in ipairs( ulx.gamemodes ) do
+
+	-- Get allowed gamemodes
+	local access, tag = LocalPlayer():query( "ulx map" )
+	local restrictions = {}
+	ULib.cmds.StringArg.processRestrictions( restrictions, ULib.cmds.translatedCmds['ulx map'].args[3], ulx.getTagArgNum( tag, 2 ) )
+
+	for _, v in ipairs( restrictions.restrictedCompletes ) do
 		maps.gamemode:AddChoice( v )
 	end
 end
@@ -142,6 +160,7 @@ function maps.updateButtonStates()
 		maps.disp:SetMaterial( Material( "maps/thumb/noicon.png" ) )
 	end
 end
+maps.updateVoteMaps() -- For autorefresh
 
 --Enable/Disable the votemap button when ulx_votemapEnabled changes
 function maps.ConVarUpdated( sv_cvar, cl_cvar, ply, old_val, new_val )
@@ -152,6 +171,6 @@ function maps.ConVarUpdated( sv_cvar, cl_cvar, ply, old_val, new_val )
 end
 hook.Add( "ULibReplicatedCvarChanged", "XGUI_mapsUpdateVotemapEnabled", maps.ConVarUpdated )
 
-xgui.hookEvent( "onProcessModules", nil, maps.updatePermissions )
-xgui.hookEvent( "votemaps", "process", maps.updateVoteMaps )
+xgui.hookEvent( "onProcessModules", nil, maps.updatePermissions, "mapsUpdatePermissions" )
+xgui.hookEvent( "votemaps", "process", maps.updateVoteMaps, "mapsUpdateVotemaps" )
 xgui.addModule( "Maps", maps, "icon16/map.png" )

@@ -2,7 +2,6 @@
 --Server-side code related to the groups menu.
 
 local groups = {}
-groups.garryUsers = {}
 function groups.init()
 	ULib.ucl.registerAccess( "xgui_managegroups", "superadmin", "Allows managing of groups, users, and access strings via the groups tab in XGUI.", "XGUI" )
 
@@ -240,6 +239,7 @@ function groups.init()
 	--Remove all UTeam values from a player (used when they change teams)
 	function groups.resetAllPlayerValues( ply )
 		for _, team in ipairs( ulx.teams ) do				--Loop through each team
+			if team.groups == nil then break end
 			for _, group in ipairs( team.groups ) do		--Loop through each group per team
 				if group == ply:GetUserGroup() then			--Have we found our team associated with this players group?
 					local resettable = {}
@@ -289,9 +289,11 @@ end
 function groups.postinit()
 	--Get user information from Garry's users.txt
 	groups.garryUsers = {}
-	for group, users in pairs ( util.KeyValuesToTable( ULib.fileRead( "settings/users.txt" ) ) ) do
-		for user, steamID in pairs( users ) do
-			groups.garryUsers[steamID] = { name=user, group=group }
+	if ULib.fileExists( "settings/users.txt" ) then
+		for group, users in pairs ( util.KeyValuesToTable( ULib.fileRead( "settings/users.txt", true ) ) ) do
+			for user, steamID in pairs( users ) do
+				groups.garryUsers[steamID] = { name=user, group=group }
+			end
 		end
 	end
 

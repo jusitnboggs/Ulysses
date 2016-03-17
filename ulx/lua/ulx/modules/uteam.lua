@@ -1,6 +1,6 @@
 local next_team_index
 local starting_team_index = 21
-ulx.teams = {}
+ulx.teams = ulx.teams or {}
 local team_by_name = {}
 
 local function sortTeams( team_a, team_b )
@@ -142,8 +142,8 @@ function ulx.refreshTeams()
 		assignTeam( ply )
 	end
 
-	hook.Add( "PlayerInitialSpawn", "UTeamInitialSpawn", sendDataTo, -20 )
-	hook.Add( "PlayerSpawn", "UTeamSpawnAuth", assignTeam, -20 )
-	hook.Add( "UCLAuthed", "UTeamAuth", assignTeam, -20 )
+	hook.Add( "PlayerInitialSpawn", "UTeamInitialSpawn", sendDataTo, HOOK_MONITOR_HIGH )
+	hook.Add( "PlayerSpawn", "UTeamSpawnAuth", assignTeam, HOOK_MONITOR_HIGH )
+	hook.Add( "UCLAuthed", "UTeamAuth", assignTeam, HOOK_MONITOR_HIGH )
 end
-hook.Add( "Initialize", "UTeamInitialize", ulx.refreshTeams, -20 )
+hook.Add( "Initialize", "UTeamInitialize", ulx.refreshTeams, HOOK_MONITOR_HIGH )

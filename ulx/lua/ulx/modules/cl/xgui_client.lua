@@ -1,54 +1,85 @@
 --XGUI: A GUI for ULX -- by Stickly Man!
-xgui = {}
+xgui = xgui or {}
 
 --Make a spot for modules to store data and hooks
-xgui.data = {}
-xgui.hook = { onProcessModules={}, onOpen={} }
+xgui.data = xgui.data or {}
+xgui.hook = xgui.hook or { onProcessModules={}, onOpen={}, onClose={} }
 --Call this function in your client-side module code to ensure the data types have been instantiated on the client.
 function xgui.prepareDataType( dtype, location )
 	if not xgui.data[dtype] then
 		xgui.data[dtype] = location or {}
-		xgui.hook[dtype] = { clear={}, process={}, done={}, add={}, update={}, remove={} }
+		xgui.hook[dtype] = { clear={}, process={}, done={}, add={}, update={}, remove={}, data={} }
 	end
 end
 
 --Set up various hooks modules can "hook" into.
-function xgui.hookEvent( dtype, event, func )
+function xgui.hookEvent( dtype, event, func, name )
 	if not xgui.hook[dtype] or ( event and not xgui.hook[dtype][event] ) then
 		Msg( "XGUI: Attempted to add to invalid type or event to a hook! (" .. dtype .. ", " .. ( event or "nil" ) .. ")\n" )
 	else
+		if not name then name = "FixMe" .. math.floor(math.random()*10000) end -- Backwards compatibility for older XGUI modules
 		if not event then
-			table.insert( xgui.hook[dtype], func )
+			xgui.hook[dtype][name] = func
 		else
-			table.insert( xgui.hook[dtype][event], func )
+			xgui.hook[dtype][event][name] = func
 		end
 	end
 end
 
 --Set up tables and functions for creating and storing modules
-xgui.modules = {}
+xgui.modules = xgui.modules or {}
 
-xgui.modules.tab={}
+xgui.modules.tab = xgui.modules.tab or {}
 function xgui.addModule( name, panel, icon, access, tooltip )
+	local refreshModules = false
+	for i = #xgui.modules.tab, 1, -1 do
+		if xgui.modules.tab[i].name == name then
+			xgui.modules.tab[i].panel:Remove()
+			xgui.modules.tab[i].tabpanel:Remove()
+			xgui.modules.tab[i].xbutton:Remove()
+			table.remove(xgui.modules.tab, i)
+			refreshModules = true
+		end
+	end
 	table.insert( xgui.modules.tab, { name=name, panel=panel, icon=icon, access=access, tooltip=tooltip } )
+	if refreshModules then xgui.processModules() end
 end
 
-xgui.modules.setting={}
+xgui.modules.setting = xgui.modules.setting or {}
 function xgui.addSettingModule( name, panel, icon, access, tooltip )
+	local refreshModules = false
+	for i = #xgui.modules.setting, 1, -1 do
+		if xgui.modules.setting[i].name == name then
+			xgui.modules.setting[i].panel:Remove()
+			xgui.modules.setting[i].tabpanel:Remove()
+			table.remove(xgui.modules.setting, i)
+			refreshModules = true
+		end
+	end
 	table.insert( xgui.modules.setting, { name=name, panel=panel, icon=icon, access=access, tooltip=tooltip } )
+	if refreshModules then xgui.processModules() end
 end
 
-xgui.modules.submodule={}
+xgui.modules.submodule = xgui.modules.submodule or {}
 function xgui.addSubModule( name, panel, access, mtype )
+	local refreshModules = false
+	for i = #xgui.modules.submodule, 1, -1 do
+		if xgui.modules.submodule[i].name == name then
+			xgui.modules.submodule[i].panel:Remove()
+			table.remove(xgui.modules.submodule, i)
+			refreshModules = true
+		end
+	end
 	table.insert( xgui.modules.submodule, { name=name, panel=panel, access=access, mtype=mtype } )
+	if refreshModules then xgui.processModules() end
 end
 --Set up a spot to store entries for autocomplete.
-xgui.tabcompletes = {}
-xgui.ulxmenucompletes = {}
+xgui.tabcompletes = xgui.tabcompletes or {}
+xgui.ulxmenucompletes = xgui.ulxmenucompletes or {}
 
 
 --Set up XGUI clientside settings, load settings from file if it exists
-xgui.settings = {}
+xgui.settings = xgui.settings or {}
 if ULib.fileExists( "data/ulx/xgui_settings.txt" ) then
 	local input = ULib.fileRead( "data/ulx/xgui_settings.txt" )
 	input = input:match( "^.-\n(.*)$" )
@@ -56,7 +87,7 @@ if ULib.fileExists( "data/ulx/xgui_settings.txt" ) then
 end
 --Set default settings if they didn't get loaded
 if not xgui.settings.moduleOrder then xgui.settings.moduleOrder = { "Cmds", "Groups", "Maps", "Settings", "Bans" } end
-if not xgui.settings.settingOrder then xgui.settings.settingOrder = { "Sandbox", "Server", "XGUI" } end
+if not xgui.settings.settingOrder then xgui.settings.settingOrder = { "Sandbox", "Server", "Client" } end
 if not xgui.settings.animTime then xgui.settings.animTime = 0.22 else xgui.settings.animTime = tonumber( xgui.settings.animTime ) end
 if not xgui.settings.infoColor then
 	--Default color
@@ -72,10 +103,7 @@ if not xgui.settings.animIntype then xgui.settings.animIntype = 1 end
 if not xgui.settings.animOuttype then xgui.settings.animOuttype = 1 end
 
 
-function xgui.init( authedply )
-	if not authedply then authedply = LocalPlayer() end
-	if authedply ~= LocalPlayer() then return end
-
+function xgui.init( ply )
 	xgui.load_helpers()
 
 	--Initiate the base window (see xgui_helpers.lua for code)
@@ -88,7 +116,7 @@ function xgui.init( authedply )
 		draw.RoundedBoxEx( 4, 0, 1, 580, 20, xgui.settings.infoColor, false, false, true, true )
 	end
 	local version_type = ulx.revision and ( ulx.revision > 0 and " SVN " .. ulx.revision or " Release") or (" N/A")
-	xlib.makelabel{ x=5, y=-10, label="\nULX Admin Mod :: XGUI - by Stickly Man! :: v14.7.8 |  ULX v" .. string.format("%.2f", ulx.version) .. version_type .. "  |  ULib v" .. ULib.VERSION, parent=xgui.infobar }:NoClipping( true )
+	xlib.makelabel{ x=5, y=-10, label="\nULX Admin Mod :: XGUI - by Stickly Man! :: v15.11.7 |  ULX v" .. string.format("%.2f", ulx.version) .. version_type .. "  |  ULib v" .. ULib.VERSION, parent=xgui.infobar }:NoClipping( true )
 	xgui.thetime = xlib.makelabel{ x=515, y=-10, label="", parent=xgui.infobar }
 	xgui.thetime:NoClipping( true )
 	xgui.thetime.check = function()
@@ -156,14 +184,16 @@ function xgui.init( authedply )
 	--Check if the server has XGUI installed
 	RunConsoleCommand( "_xgui", "getInstalled" )
 
-	hook.Remove( "UCLAuthed", "InitXGUI" )
 	xgui.initialized = true
 
 	xgui.processModules()
 end
-hook.Add( "UCLAuthed", "InitXGUI", xgui.init, 20 )
+hook.Add( ULib.HOOK_LOCALPLAYERREADY, "InitXGUI", xgui.init, HOOK_MONITOR_LOW )
 
 function xgui.saveClientSettings()
+	if not ULib.fileIsDir( "data/ulx" ) then
+		ULib.fileCreateDir( "data/ulx" )
+	end
 	local output = "// This file stores clientside settings for XGUI.\n"
 	output = output .. ULib.makeKeyValues( xgui.settings )
 	ULib.fileWrite( "data/ulx/xgui_settings.txt", output )
@@ -389,6 +419,9 @@ function xgui.hide()
 	xgui.anchor:SetMouseInputEnabled( false )
 	xgui.base.animClose()
 	CloseDermaMenus()
+
+	--Calls the functions requesting to hook when XGUI is closed
+	xgui.callUpdate( "onClose" )
 end
 
 function xgui.toggle( tabname )
@@ -408,6 +441,7 @@ function xgui.expectChunks( numofchunks )
 		xgui.chunkbox:SetFraction( 0 )
 		xgui.chunkbox.Label:SetText( "Getting data: Waiting for server..." )
 		xgui.chunkbox:SetVisible( true )
+		xgui.chunkbox:SetSkin( xgui.settings.skin )
 		xgui.flushQueue( "chunkbox" ) --Remove the queue entry that would hide the chunkbox
 	end
 end
@@ -418,7 +452,9 @@ function xgui.getChunk( flag, datatype, data )
 		xgui.chunkbox:Progress( datatype )
 		if flag == -1 then return --Ignore these chunks
 		elseif flag == 0 then --Data should be purged
-			table.Empty( xgui.data[datatype] )
+			if xgui.data[datatype] then
+				table.Empty( xgui.data[datatype] )
+			end
 			xgui.flushQueue( datatype )
 			xgui.callUpdate( datatype, "clear" )
 		elseif flag == 1 then
@@ -448,8 +484,9 @@ function xgui.getChunk( flag, datatype, data )
 		elseif flag == 6 then --End a set of chunks (Clear the merge flag)
 			xgui.mergeData = nil
 			xgui.callUpdate( datatype, "done" )
+		elseif flag == 7 then --Pass the data directly to the module to be handled.
+			xgui.callUpdate( datatype, "data", data )
 		end
-		xgui.callUpdate( datatype )
 	end
 end
 
@@ -473,9 +510,9 @@ function xgui.callUpdate( dtype, event, data )
 		Msg( "XGUI: Attempted to call non-existent type or event to a hook! (" .. dtype .. ", " .. ( event or "nil" ) .. ")\n" )
 	else
 		if not event then
-			for _, func in ipairs( xgui.hook[dtype] ) do func( data ) end
+			for name, func in pairs( xgui.hook[dtype] ) do func( data ) end
 		else
-			for _, func in ipairs( xgui.hook[dtype][event] ) do func( data ) end
+			for name, func in pairs( xgui.hook[dtype][event] ) do func( data ) end
 		end
 	end
 end

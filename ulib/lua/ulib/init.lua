@@ -43,6 +43,10 @@ if not ULib then
 	include( "server/player_ext.lua" )
 	Msg( "//  server/entity_ext.lua    //\n" )
 	include( "server/entity_ext.lua" )
+	Msg( "//  shared/cami_global.lua   //\n" )
+	include( "shared/cami_global.lua" )
+	Msg( "//  shared/cami_ulib.lua    //\n" )
+	include( "shared/cami_ulib.lua" )
 	Msg( "// Load Complete!            //\n" )
 	Msg( "///////////////////////////////\n" )
 
@@ -87,6 +91,13 @@ if not ULib then
 			AddCSLuaFile( "ulib/modules/client/" .. file )
 		end
 	end
+
+	Msg("********************************************************\n")
+	Msg(" NOTICE: ULib has been moved to a different repository!\n")
+	Msg(" Please visit http://ulyssesmod.net/ for more details.\n")
+	Msg(" Update your server as soon as possible!\n")
+	Msg("********************************************************\n\n\n")
+	ULib.notifyRepoChange = true
 
 	local function clReady( ply )
 		ply.ulib_ready = true

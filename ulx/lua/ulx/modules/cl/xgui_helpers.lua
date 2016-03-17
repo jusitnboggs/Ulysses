@@ -19,7 +19,7 @@ function xgui.load_helpers()
 		end
 	end
 	hook.Add( "OnTextEntryLoseFocus", "XGUI_LoseKeyboardFocus", loseKeyboardFocus )
-		
+
 
 	---------------------------------
 	--Code for creating the XGUI base
@@ -30,7 +30,7 @@ function xgui.load_helpers()
 		xgui.anchor:SetKeyboardInputEnabled( false )
 		xgui.anchor.Paint = function( self, w, h ) hook.Call( "XLIBDoAnimation" ) end
 		xgui.anchor:SetAlpha( 0 )
-		
+
 		xgui.base = xlib.makepropertysheet{ x=0, y=0, w=600, h=400, parent=xgui.anchor, offloadparent=xgui.null }
 		xgui.base.animOpen = function() --First 4 are fade animations, last (or invalid choice) is the default fade animation.
 			xgui.settings.animIntype = tonumber( xgui.settings.animIntype )
@@ -72,7 +72,7 @@ function xgui.load_helpers()
 			end
 			xlib.animQueue_start()
 		end
-		
+
 		function xgui.SetPos( pos, xoff, yoff, ignoreanim ) --Sets the position of XGUI based on "pos", and checks to make sure that with whatever offset and pos combination, XGUI does not go off the screen.
 			pos = tonumber( pos )
 			xoff = tonumber( xoff )
@@ -102,7 +102,7 @@ function xgui.load_helpers()
 				end
 				xgui.x = ScrW()/2-300+xoff
 			end
-			
+
 			if pos == 1 or pos == 2 or pos == 3 then --Bottom of the screen
 				if yoff < -ScrH()+430 then
 					yoff = -ScrH()+430
@@ -134,7 +134,7 @@ function xgui.load_helpers()
 			end
 		end
 		xgui.SetPos( xgui.settings.xguipos.pos, xgui.settings.xguipos.xoff, xgui.settings.xguipos.yoff )
-		
+
 		function xgui.base:SetActiveTab( active, ignoreAnim )
 			if ( self.m_pActiveTab == active ) then return end
 			if ( self.m_pActiveTab ) then
@@ -149,9 +149,9 @@ function xgui.load_helpers()
 			self.m_pActiveTab = active
 			self:InvalidateLayout()
 		end
-		
+
 		--Progress bar
-		xgui.chunkbox = xlib.makeprogressbar{ x=420, w=180, h=20, visible=false, parent=xgui.anchor }
+		xgui.chunkbox = xlib.makeprogressbar{ x=420, w=180, h=20, visible=false, skin=xgui.settings.skin, parent=xgui.anchor }
 		function xgui.chunkbox:Progress( datatype )
 			self.value = self.value + 1
 			self:SetFraction( self.value / self.max )
@@ -172,7 +172,7 @@ function xgui.load_helpers()
 	--I also now get to add a method of flushing the queue based on a tag in the event that new data needs to be updated.
 	local stack = {}
 	local function onThink()
-		
+
 		local num = #stack
 		if num > 0 then
 			for i=1,3 do --Run 3 lines per frame
@@ -196,7 +196,7 @@ function xgui.load_helpers()
 		end
 
 		table.insert( stack, { fn=fn, tag=tag, n=select( "#", ... ), ... } )
-		hook.Add( "Think", "XGUIQueueThink", onThink, -20 )
+		hook.Add( "Think", "XGUIQueueThink", onThink, HOOK_MONITOR_HIGH )
 	end
 
 	function xgui.flushQueue( tag )
@@ -221,24 +221,24 @@ function xgui.load_helpers()
 	end
 
 	--Load control interpretations for ULib argument types
-	function ULib.cmds.BaseArg.x_getcontrol( arg, argnum )
-		return xlib.makelabel{ label="Not Supported" }
+	function ULib.cmds.BaseArg.x_getcontrol( arg, argnum, parent )
+		return xlib.makelabel{ label="Not Supported", parent=parent }
 	end
 
-	function ULib.cmds.NumArg.x_getcontrol( arg, argnum )
+	function ULib.cmds.NumArg.x_getcontrol( arg, argnum, parent )
 		local access, tag = LocalPlayer():query( arg.cmd )
 		local restrictions = {}
 		ULib.cmds.NumArg.processRestrictions( restrictions, arg, ulx.getTagArgNum( tag, argnum ) )
-		
+
 		if table.HasValue( arg, ULib.cmds.allowTimeString ) then
 			local min = restrictions.min or 0
 			local max = restrictions.max or 10 * 60 * 24 * 365 --default slider max 10 years
-			
-			local outPanel = xlib.makepanel{ h=40 }
+
+			local outPanel = xlib.makepanel{ h=40, parent=parent }
 			xlib.makelabel{ x=5, y=3, label="Ban Length:", parent=outPanel }
 			outPanel.interval = xlib.makecombobox{ x=90, w=75, parent=outPanel }
 			outPanel.val = xlib.makeslider{ w=165, y=20, label="<--->", min=min, max=max, value=min, decimal=0, parent=outPanel }
-			
+
 			local divisor = {}
 			local sensiblemax = {}
 			if min == 0 then outPanel.interval:AddChoice( "Permanent" ) table.insert( divisor, 1 ) table.insert( sensiblemax, 0 ) end
@@ -246,7 +246,7 @@ function xgui.load_helpers()
 			if max >= 60 and min <= 60*24*7 then outPanel.interval:AddChoice( "Hours" ) table.insert( divisor, 60 ) table.insert( sensiblemax, 24*7 ) end
 			if max >= ( 60*24 ) and min <= 60*24*120 then outPanel.interval:AddChoice( "Days" ) table.insert( divisor, 60*24 ) table.insert( sensiblemax, 120 ) end
 			if max >= ( 60*24*7 ) and min <= 60*24*7*52 then outPanel.interval:AddChoice( "Weeks" ) table.insert( divisor, 60*24*7 ) table.insert( sensiblemax, 52 ) end
-			if max >= ( 60*24*365 ) then outPanel.interval:AddChoice( "Years" ) table.insert( divisor, 60*24*365 ) table.insert( sensiblemax, 10 ) end 
+			if max >= ( 60*24*365 ) then outPanel.interval:AddChoice( "Years" ) table.insert( divisor, 60*24*365 ) table.insert( sensiblemax, 10 ) end
 
 			outPanel.interval.OnSelect = function( self, index, value, data )
 				outPanel.val:SetDisabled( value == "Permanent" )
@@ -256,7 +256,7 @@ function xgui.load_helpers()
 				outPanel.val:SetMin( outPanel.val.minvalue )
 				outPanel.val:SetValue( math.Clamp( tonumber( outPanel.val:GetValue() ), outPanel.val.minvalue, outPanel.val.maxvalue ) )
 			end
-			
+
 			function outPanel.val:ValueChanged( val )
 				val = math.Clamp( tonumber( val ), self.minvalue or 0, self.maxvalue or 0 )
 				self.Slider:SetSlideX( self.Scratch:GetFraction( val ) )
@@ -265,11 +265,11 @@ function xgui.load_helpers()
 				end
 				self:OnValueChanged( val )
 			end
-			
+
 			if #outPanel.interval.Choices ~= 0 then
 				outPanel.interval:ChooseOptionID( 1 )
 			end
-			
+
 			outPanel.GetValue = function( self )
 				local val, char = self:GetRawValue()
 				return val .. char
@@ -293,13 +293,30 @@ function xgui.load_helpers()
 			local defvalue = arg.min
 			if table.HasValue( arg, ULib.cmds.optional ) then defvalue = arg.default end
 			if not defvalue then defvalue = 0 end --No default was set for this command, so we'll use 0.
-			
+
 			local maxvalue = restrictions.max
-			if restrictions.max == nil and defvalue > 100 then maxvalue = defvalue end
-			
-			local outPanel = xlib.makepanel{ h=35 }
+			local minvalue = restrictions.min or 0
+			if maxvalue == nil then
+				if defvalue > 100 then
+					maxvalue = defvalue
+				else
+					maxvalue = 100
+				end
+			end
+
+			local decimal = 0
+			if not table.HasValue( arg, ULib.cmds.round ) then
+				local minMaxDelta = maxvalue - minvalue
+				if minMaxDelta < 5 then
+					decimal = 2
+				elseif minMaxDelta <= 10 then
+					decimal = 1
+				end
+			end
+
+			local outPanel = xlib.makepanel{ h=35, parent=parent }
 			xlib.makelabel{ label=arg.hint or "NumArg", parent=outPanel }
-			outPanel.val = xlib.makeslider{ y=15, w=165, min=restrictions.min, max=maxvalue, value=defvalue, label="<--->", parent=outPanel }
+			outPanel.val = xlib.makeslider{ y=15, w=165, min=minvalue, max=maxvalue, value=defvalue, decimal=decimal, label="<--->", parent=outPanel }
 			outPanel.GetValue = function( self ) return outPanel.val.GetValue( outPanel.val ) end
 			outPanel.TextArea = outPanel.val.TextArea
 			return outPanel
@@ -308,11 +325,11 @@ function xgui.load_helpers()
 
 	function ULib.cmds.NumArg.getTime( arg )
 		if arg == nil or arg == "" then return nil, nil end
-		
+
 		if arg == 0 or tonumber( arg ) == 0 then
 			return "Permanent", 0
 		end
-		
+
 		local charPriority = { "y", "w", "d", "h" }
 		local charMap = { "Years", "Weeks", "Days", "Hours" }
 		local divisor = { 60 * 24 * 365, 60 * 24 * 7, 60 * 24, 60 }
@@ -324,62 +341,62 @@ function xgui.load_helpers()
 				return charMap[ i ], val
 			end
 		end
-		
+
 		return "Minutes", ULib.stringTimeToSeconds( arg )
 	end
 
 
-	function ULib.cmds.StringArg.x_getcontrol( arg, argnum )
+	function ULib.cmds.StringArg.x_getcontrol( arg, argnum, parent )
 		local access, tag = LocalPlayer():query( arg.cmd )
 		local restrictions = {}
 		ULib.cmds.StringArg.processRestrictions( restrictions, arg, ulx.getTagArgNum( tag, argnum ) )
-		
+
 		local is_restricted_to_completes = table.HasValue( arg, ULib.cmds.restrictToCompletes ) -- Program-level restriction (IE, ulx map)
-			or restrictions.playerLevelRestriction -- The player's tag specifies only certain strings	
-		
+			or restrictions.playerLevelRestriction -- The player's tag specifies only certain strings
+
 		if is_restricted_to_completes then
-			return xlib.makecombobox{ text=arg.hint or "StringArg", choices=restrictions.restrictedCompletes }
+			return xlib.makecombobox{ text=arg.hint or "StringArg", choices=restrictions.restrictedCompletes, parent=parent }
 		elseif restrictions.restrictedCompletes and table.Count( restrictions.restrictedCompletes ) > 0 then
 			-- This is where there needs to be both a drop down AND an input box
-			local outPanel = xlib.makecombobox{ text=arg.hint, choices=restrictions.restrictedCompletes, enableinput=true, selectall=true }
+			local outPanel = xlib.makecombobox{ text=arg.hint, choices=restrictions.restrictedCompletes, enableinput=true, selectall=true, parent=parent }
 			outPanel.OnEnter = function( self )
 				self:GetParent():OnEnter()
 			end
 			return outPanel
 		else
-			return xlib.maketextbox{ text=arg.hint or "StringArg", selectall=true }
+			return xlib.maketextbox{ text=arg.hint or "StringArg", selectall=true, parent=parent }
 		end
 	end
 
-	function ULib.cmds.PlayerArg.x_getcontrol( arg, argnum )
+	function ULib.cmds.PlayerArg.x_getcontrol( arg, argnum, parent )
 		local access, tag = LocalPlayer():query( arg.cmd )
 		local restrictions = {}
 		ULib.cmds.PlayerArg.processRestrictions( restrictions, LocalPlayer(), arg, ulx.getTagArgNum( tag, argnum ) )
-		
-		local outPanel = xlib.makecombobox{ text=arg.hint }
+
+		local outPanel = xlib.makecombobox{ text=arg.hint, parent=parent }
 		local targets = restrictions.restrictedTargets
 		if targets == false then -- No one allowed
 			targets = {}
 		elseif targets == nil then -- Everyone allowed
 			targets = player.GetAll()
 		end
-		
+
 		for _, ply in ipairs( targets ) do
 			outPanel:AddChoice( ply:Nick() )
 		end
 		return outPanel
 	end
 
-	function ULib.cmds.CallingPlayerArg.x_getcontrol( arg, argnum )
-		return xlib.makelabel{ label=arg.hint or "CallingPlayer" }
+	function ULib.cmds.CallingPlayerArg.x_getcontrol( arg, argnum, parent )
+		return xlib.makelabel{ label=arg.hint or "CallingPlayer", parent=parent }
 	end
 
-	function ULib.cmds.BoolArg.x_getcontrol( arg, argnum )
+	function ULib.cmds.BoolArg.x_getcontrol( arg, argnum, parent )
 		local access, tag = LocalPlayer():query( arg.cmd )
 		local restrictions = {}
 		ULib.cmds.BoolArg.processRestrictions( restrictions, arg, ulx.getTagArgNum( tag, argnum ) )
-		
-		local outPanel = xlib.makecheckbox{ label=arg.hint or "BoolArg", value=restrictions.restrictedTo }
+
+		local outPanel = xlib.makecheckbox{ label=arg.hint or "BoolArg", value=restrictions.restrictedTo, parent=parent }
 		if restrictions.restrictedTo ~= nil then outPanel:SetDisabled( true ) end
 		outPanel.GetValue = function( self )
 			return self:GetChecked() and 1 or 0
